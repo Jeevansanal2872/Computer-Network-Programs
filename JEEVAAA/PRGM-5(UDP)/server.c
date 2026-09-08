@@ -1,0 +1,105 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+#define PORT 8080
+#define BUFFER_SIZE 1024
+
+void translate(char str[])
+{
+    struct {
+        char shortForm[10];
+        char fullForm[40];
+    } dict[] = {
+        {"idk", "I don't know"},
+        {"abt", "about"},
+        {"tbh", "to be honest"},
+        {"ig", "I guess"},
+        {"atm", "at the moment"},
+        {"irl", "in real life"},
+        {"lol", "laughing out loud"},
+        {"asap", "as soon as possible"},
+        {"omg", "Oh my God"},
+       { "Ashtray", "Fahhhhhhhh"},
+       { "Sreedev", "Pookieeee"},
+    };
+
+    char result[BUFFER_SIZE] = "";
+    char *token = strtok(str, " ");
+
+    while (token != NULL)
+    {
+        int found = 0;
+
+        for (int i = 0; i < 10; i++)
+        {
+            if (strcmp(token, dict[i].shortForm) == 0)
+            {
+                strcat(result, dict[i].fullForm);
+                found = 1;
+                break;
+            }
+        }
+
+        if (!found)
+            strcat(result, token);
+
+        strcat(result, " ");
+        token = strtok(NULL, " ");
+    }
+
+    strcpy(str, result);
+}
+
+int main()
+{
+    int server_sock;
+    struct sockaddr_in server_addr, client_addr;
+    socklen_t len = sizeof(client_addr);
+    char buffer[BUFFER_SIZE];
+
+    server_sock = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if (server_sock < 0)
+    {
+        perror("Socket creation failed");
+        exit(1);
+    }
+
+    printf("UDP Server Socket Created\n");
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(PORT);
+
+    if (bind(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+    {
+        perror("Bind failed");
+        close(server_sock);
+        exit(1);
+    }
+
+    printf("UDP Server Running...\n");
+
+    while (1)
+    {
+        recvfrom(server_sock, buffer, BUFFER_SIZE, 0,
+                 (struct sockaddr *)&client_addr, &len);
+
+        buffer[strcspn(buffer, "\n")] = '\0';
+
+        printf("Client: %s\n", buffer);
+
+        translate(buffer);
+
+        printf("Translated: %s\n", buffer);
+
+        sendto(server_sock, buffer, strlen(buffer) + 1, 0,
+               (struct sockaddr *)&client_addr, len);
+    }
+
+    close(server_sock);
+    return 0;
+}
